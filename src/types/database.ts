@@ -9,6 +9,8 @@ export type OnboardingStepKey =
   | 'salesforce'
   | 'deck_reviewed';
 
+export type ReviewStatus = 'pending' | 'approved' | 'changes_requested';
+
 export interface Coach {
   id: string;
   name: string;
@@ -25,6 +27,9 @@ export interface OnboardingStep {
   completed: boolean;
   completed_at: string | null;
   file_path: string | null;
+  review_status: ReviewStatus;
+  review_feedback: string | null;
+  reviewed_at: string | null;
 }
 
 export interface CoachProfile {
@@ -42,7 +47,7 @@ export interface CoachProfile {
 export interface CoachWithProgress extends Coach {
   completed_steps: number;
   total_steps: number;
-  onboarding_steps?: OnboardingStep[];
+  coach_onboarding_steps?: OnboardingStep[];
   profile?: CoachProfile;
 }
 
@@ -74,29 +79,3 @@ export const COACHING_SPECIALTIES = [
   'Transition Coaching',
   'Entrepreneurship',
 ];
-
-export type Database = {
-  public: {
-    Tables: {
-      coaches: {
-        Row: Coach;
-        Insert: Omit<Coach, 'id' | 'created_at' | 'onboarding_token'> & {
-          id?: string;
-          created_at?: string;
-          onboarding_token?: string;
-        };
-        Update: Partial<Omit<Coach, 'id'>>;
-      };
-      onboarding_steps: {
-        Row: OnboardingStep;
-        Insert: Omit<OnboardingStep, 'id'> & { id?: string };
-        Update: Partial<Omit<OnboardingStep, 'id'>>;
-      };
-      coach_profiles: {
-        Row: CoachProfile;
-        Insert: Omit<CoachProfile, 'id' | 'updated_at'> & { id?: string; updated_at?: string };
-        Update: Partial<Omit<CoachProfile, 'id'>>;
-      };
-    };
-  };
-};

@@ -44,10 +44,10 @@ export default function AdminDashboard() {
 
   const fetchCoaches = async () => {
     const { data: coachesData, error } = await supabase
-      .from('coaches')
+      .from('coach_onboarding')
       .select(`
         *,
-        onboarding_steps (*)
+        coach_onboarding_steps (*)
       `)
       .order('created_at', { ascending: false });
 
@@ -57,7 +57,7 @@ export default function AdminDashboard() {
     }
 
     const coachesWithProgress: CoachWithProgress[] = (coachesData || []).map((coach) => {
-      const steps = coach.onboarding_steps || [];
+      const steps = coach.coach_onboarding_steps || [];
       const completedSteps = steps.filter((s: { completed: boolean }) => s.completed).length;
       return {
         ...coach,
@@ -78,7 +78,7 @@ export default function AdminDashboard() {
     e.preventDefault();
     setCreating(true);
 
-    const { error } = await supabase.from('coaches').insert({
+    const { error } = await supabase.from('coach_onboarding').insert({
       name: newCoachName,
       email: newCoachEmail,
     });

@@ -9,8 +9,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Copy, CheckCircle, Download, User, Mail, Calendar, ExternalLink } from 'lucide-react';
-import { Coach, CoachProfile, OnboardingStep, ONBOARDING_STEPS } from '@/types/database';
+import { ArrowLeft, Copy, CheckCircle, Download, User, Mail, Calendar, ExternalLink, AlertCircle, MessageSquare } from 'lucide-react';
+import { Coach, CoachProfile, OnboardingStep, ONBOARDING_STEPS, ReviewStatus } from '@/types/database';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function CoachDetailPage() {
   const params = useParams();
@@ -22,23 +31,30 @@ export default function CoachDetailPage() {
   const [steps, setSteps] = useState<OnboardingStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [feedbackDialog, setFeedbackDialog] = useState<{ open: boolean; stepKey: string; currentFeedback: string }>({
+    open: false,
+    stepKey: '',
+    currentFeedback: '',
+  });
+  const [feedbackText, setFeedbackText] = useState('');
+  const [savingReview, setSavingReview] = useState(false);
   const supabase = createClient();
 
   const fetchCoachData = async () => {
     const { data: coachData } = await supabase
-      .from('coaches')
+      .from('coach_onboarding')
       .select('*')
       .eq('id', coachId)
       .single();
 
     const { data: profileData } = await supabase
-      .from('coach_profiles')
+      .from('coach_onboarding_profiles')
       .select('*')
       .eq('coach_id', coachId)
       .single();
 
     const { data: stepsData } = await supabase
-      .from('onboarding_steps')
+      .from('coach_onboarding_steps')
       .select('*')
       .eq('coach_id', coachId);
 
@@ -54,7 +70,7 @@ export default function CoachDetailPage() {
 
   const toggleStep = async (stepKey: string, currentCompleted: boolean) => {
     const { error } = await supabase
-      .from('onboarding_steps')
+      .from('coach_onboarding_steps')
       .update({
         completed: !currentCompleted,
         completed_at: !currentCompleted ? new Date().toISOString() : null,
@@ -97,6 +113,68 @@ export default function CoachDetailPage() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const openFeedbackDialog = (stepKey: string, currentFeedback: string | null) => {
+    setFeedbackText(currentFeedback || '');
+    setFeedbackDialog({ open: true, stepKey, currentFeedback: currentFeedback || '' });
+  };
+
+  const updateReviewStatus = async (stepKey: string, status: ReviewStatus, feedback?: string) => {
+    setSavingReview(true);
+
+    const updateData: { review_status: ReviewStatus; reviewed_at: string; review_feedback?: string | null; completed?: boolean; completed_at?: string | null } = {
+      review_status: status,
+      reviewed_at: new Date().toISOString(),
+    };
+
+    if (feedback !== undefined) {
+      updateData.review_feedback = feedback || null;
+    }
+
+    if (status === 'changes_requested') {
+      updateData.completed = false;
+      updateData.completed_at = null;
+    }
+
+    const { error } = await supabase
+      .from('coach_onboarding_steps')
+      .update(updateData)
+      .eq('coach_id', coachId)
+      .eq('step_key', stepKey);
+
+    if (error) {
+      console.error('Error updating review status:', error);
+      alert('Failed to update review status');
+    } else {
+      setFeedbackDialog({ open: false, stepKey: '', currentFeedback: '' });
+      fetchCoachData();
+    }
+
+    setSavingReview(false);
+  };
+
+  const approveStep = async (stepKey: string) => {
+    await updateReviewStatus(stepKey, 'approved');
+  };
+
+  const requestChanges = async () => {
+    if (!feedbackText.trim()) {
+      alert('Please provide feedback explaining what changes are needed');
+      return;
+    }
+    await updateReviewStatus(feedbackDialog.stepKey, 'changes_requested', feedbackText);
+  };
+
+  const getReviewBadge = (status: ReviewStatus) => {
+    switch (status) {
+      case 'approved':
+        return <Badge variant="success">Approved</Badge>;
+      case 'changes_requested':
+        return <Badge variant="destructive">Changes Requested</Badge>;
+      default:
+        return <Badge variant="secondary">Pending Review</Badge>;
+    }
   };
 
   const getStepStatus = (stepKey: string) => {
@@ -274,7 +352,7 @@ export default function CoachDetailPage() {
           <CardHeader>
             <CardTitle>Onboarding Steps</CardTitle>
             <CardDescription>
-              Toggle manual steps (Zoom, Gmail, Salesforce) when complete
+              Toggle manual steps (Zoom, Gmail, Salesforce) when complete. Review uploaded documents and profiles.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -283,12 +361,17 @@ export default function CoachDetailPage() {
                 const stepStatus = getStepStatus(step.key);
                 const isManual = manualSteps.includes(step.key);
                 const hasFile = stepStatus?.file_path;
+                const needsReview = (step.type === 'upload' || step.type === 'form') && stepStatus?.completed;
 
                 return (
                   <div
                     key={step.key}
                     className={`flex items-start gap-4 p-4 rounded-lg border ${
-                      stepStatus?.completed ? 'bg-green-50 border-green-200' : 'bg-background'
+                      stepStatus?.completed
+                        ? stepStatus?.review_status === 'changes_requested'
+                          ? 'bg-red-50 border-red-200'
+                          : 'bg-green-50 border-green-200'
+                        : 'bg-background'
                     }`}
                   >
                     <div className="pt-0.5">
@@ -303,17 +386,26 @@ export default function CoachDetailPage() {
                         <div
                           className={`h-5 w-5 rounded-full flex items-center justify-center ${
                             stepStatus?.completed
-                              ? 'bg-green-500 text-white'
+                              ? stepStatus?.review_status === 'changes_requested'
+                                ? 'bg-red-500 text-white'
+                                : 'bg-green-500 text-white'
                               : 'bg-muted text-muted-foreground'
                           }`}
                         >
-                          {stepStatus?.completed && <CheckCircle className="h-3 w-3" />}
+                          {stepStatus?.completed && (
+                            stepStatus?.review_status === 'changes_requested'
+                              ? <AlertCircle className="h-3 w-3" />
+                              : <CheckCircle className="h-3 w-3" />
+                          )}
                         </div>
                       )}
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">{step.label}</h4>
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium">{step.label}</h4>
+                          {needsReview && stepStatus?.review_status && getReviewBadge(stepStatus.review_status)}
+                        </div>
                         {stepStatus?.completed && stepStatus.completed_at && (
                           <span className="text-xs text-muted-foreground">
                             Completed {new Date(stepStatus.completed_at).toLocaleDateString()}
@@ -321,19 +413,62 @@ export default function CoachDetailPage() {
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground">{step.description}</p>
-                      {hasFile && (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 mt-2"
-                          onClick={() =>
-                            downloadFile(stepStatus.file_path!, `${coach.name}-${step.key}`)
-                          }
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Download File
-                        </Button>
+
+                      {/* Review feedback display */}
+                      {stepStatus?.review_status === 'changes_requested' && stepStatus?.review_feedback && (
+                        <div className="mt-2 p-2 bg-red-100 rounded text-sm">
+                          <div className="flex items-start gap-2">
+                            <MessageSquare className="h-4 w-4 mt-0.5 text-red-600" />
+                            <div>
+                              <span className="font-medium text-red-800">Feedback:</span>
+                              <p className="text-red-700">{stepStatus.review_feedback}</p>
+                            </div>
+                          </div>
+                        </div>
                       )}
+
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        {hasFile && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0"
+                            onClick={() =>
+                              downloadFile(stepStatus.file_path!, `${coach.name}-${step.key}`)
+                            }
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Download File
+                          </Button>
+                        )}
+
+                        {/* Review actions for uploaded/form steps */}
+                        {needsReview && stepStatus?.review_status !== 'approved' && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => approveStep(step.key)}
+                              disabled={savingReview}
+                              className="text-green-600 border-green-600 hover:bg-green-50"
+                            >
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openFeedbackDialog(step.key, stepStatus?.review_feedback || null)}
+                              disabled={savingReview}
+                              className="text-red-600 border-red-600 hover:bg-red-50"
+                            >
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Request Changes
+                            </Button>
+                          </>
+                        )}
+                      </div>
+
                       {isManual && (
                         <Badge variant="outline" className="mt-2">
                           Admin Task
@@ -346,6 +481,34 @@ export default function CoachDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Feedback Dialog */}
+        <Dialog open={feedbackDialog.open} onOpenChange={(open) => setFeedbackDialog({ ...feedbackDialog, open })}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Request Changes</DialogTitle>
+              <DialogDescription>
+                Provide feedback explaining what changes are needed for this submission.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Textarea
+                placeholder="Please describe what changes are needed..."
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+                rows={4}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setFeedbackDialog({ open: false, stepKey: '', currentFeedback: '' })}>
+                Cancel
+              </Button>
+              <Button onClick={requestChanges} disabled={savingReview} variant="destructive">
+                {savingReview ? 'Saving...' : 'Request Changes'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
