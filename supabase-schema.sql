@@ -2,7 +2,7 @@
 -- Run this in your Supabase SQL Editor
 
 -- Coaches table
-create table if not exists coaches (
+create table if not exists coach_onboarding (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   email text not null,
@@ -12,20 +12,23 @@ create table if not exists coaches (
 );
 
 -- Onboarding steps
-create table if not exists onboarding_steps (
+create table if not exists coach_onboarding_steps (
   id uuid primary key default gen_random_uuid(),
-  coach_id uuid references coaches(id) on delete cascade,
+  coach_id uuid references coach_onboarding(id) on delete cascade,
   step_key text not null,
   completed boolean default false,
   completed_at timestamp with time zone,
   file_path text,
+  review_status text default 'pending' check (review_status in ('pending', 'approved', 'changes_requested')),
+  review_feedback text,
+  reviewed_at timestamp with time zone,
   unique(coach_id, step_key)
 );
 
 -- Coach profiles
-create table if not exists coach_profiles (
+create table if not exists coach_onboarding_profiles (
   id uuid primary key default gen_random_uuid(),
-  coach_id uuid references coaches(id) on delete cascade unique,
+  coach_id uuid references coach_onboarding(id) on delete cascade unique,
   bio text,
   headshot_path text,
   specialties text[],
@@ -36,64 +39,60 @@ create table if not exists coach_profiles (
 );
 
 -- Create indexes for better query performance
-create index if not exists idx_coaches_token on coaches(onboarding_token);
-create index if not exists idx_onboarding_steps_coach on onboarding_steps(coach_id);
-create index if not exists idx_coach_profiles_coach on coach_profiles(coach_id);
+create index if not exists idx_coach_onboarding_token on coach_onboarding(onboarding_token);
+create index if not exists idx_coach_onboarding_steps_coach on coach_onboarding_steps(coach_id);
+create index if not exists idx_coach_onboarding_profiles_coach on coach_onboarding_profiles(coach_id);
 
 -- Enable Row Level Security
-alter table coaches enable row level security;
-alter table onboarding_steps enable row level security;
-alter table coach_profiles enable row level security;
+alter table coach_onboarding enable row level security;
+alter table coach_onboarding_steps enable row level security;
+alter table coach_onboarding_profiles enable row level security;
 
 -- RLS Policies
 
--- Admin can do everything (check for authenticated user)
--- You'll need to set your admin user ID after creating the admin account
--- Replace 'YOUR_ADMIN_USER_ID' with the actual UUID
-
--- For coaches table
-create policy "Admin full access to coaches" on coaches
+-- For coach_onboarding table
+create policy "Admin full access to coach_onboarding" on coach_onboarding
   for all using (auth.uid() is not null);
 
-create policy "Coaches can view own data by token" on coaches
+create policy "Coaches can view own data by token" on coach_onboarding
   for select using (true);
 
--- For onboarding_steps table
-create policy "Admin full access to onboarding_steps" on onboarding_steps
+-- For coach_onboarding_steps table
+create policy "Admin full access to coach_onboarding_steps" on coach_onboarding_steps
   for all using (auth.uid() is not null);
 
-create policy "Coaches can view own steps" on onboarding_steps
+create policy "Coaches can view own steps" on coach_onboarding_steps
   for select using (
-    coach_id in (select id from coaches)
+    coach_id in (select id from coach_onboarding)
   );
 
-create policy "Coaches can update own steps" on onboarding_steps
+create policy "Coaches can update own steps" on coach_onboarding_steps
   for update using (
-    coach_id in (select id from coaches)
+    coach_id in (select id from coach_onboarding)
   );
 
-create policy "Coaches can insert own steps" on onboarding_steps
+create policy "Coaches can insert own steps" on coach_onboarding_steps
   for insert with check (
-    coach_id in (select id from coaches)
+    coach_id in (select id from coach_onboarding)
   );
 
--- For coach_profiles table
-create policy "Admin full access to coach_profiles" on coach_profiles
+-- For coach_onboarding_profiles table
+create policy "Admin full access to coach_onboarding_profiles" on coach_onboarding_profiles
   for all using (auth.uid() is not null);
 
-create policy "Coaches can view own profile" on coach_profiles
+create policy "Coaches can view own profile" on coach_onboarding_profiles
   for select using (
-    coach_id in (select id from coaches)
+    coach_id in (select id from coach_onboarding)
   );
 
-create policy "Coaches can update own profile" on coach_profiles
+create policy "Coaches can update own profile" on coach_onboarding_profiles
   for update using (
-    coach_id in (select id from coaches)
+    coach_id in (select id from coach_onboarding)
   );
 
-create policy "Coaches can insert own profile" on coach_profiles
+create policy "Coaches can insert own profile" on coach_onboarding_profiles
   for insert with check (
-    coach_id in (select id from coaches)
+    coach_id in (select id from coach_onboarding)
   );
 
 -- Storage bucket for coach documents
@@ -107,10 +106,10 @@ create policy "Coaches can insert own profile" on coach_profiles
 -- delete policy: "Allow authenticated deletes"
 
 -- Function to initialize onboarding steps for a new coach
-create or replace function initialize_coach_steps()
+create or replace function initialize_coach_onboarding_steps()
 returns trigger as $$
 begin
-  insert into onboarding_steps (coach_id, step_key)
+  insert into coach_onboarding_steps (coach_id, step_key)
   values
     (new.id, 'w9'),
     (new.id, '1099'),
@@ -122,7 +121,7 @@ begin
     (new.id, 'gmail'),
     (new.id, 'salesforce');
 
-  insert into coach_profiles (coach_id)
+  insert into coach_onboarding_profiles (coach_id)
   values (new.id);
 
   return new;
@@ -130,13 +129,13 @@ end;
 $$ language plpgsql;
 
 -- Trigger to auto-create steps when a coach is added
-drop trigger if exists on_coach_created on coaches;
-create trigger on_coach_created
-  after insert on coaches
-  for each row execute function initialize_coach_steps();
+drop trigger if exists on_coach_onboarding_created on coach_onboarding;
+create trigger on_coach_onboarding_created
+  after insert on coach_onboarding
+  for each row execute function initialize_coach_onboarding_steps();
 
 -- Function to update coach status based on steps
-create or replace function update_coach_status()
+create or replace function update_coach_onboarding_status()
 returns trigger as $$
 declare
   completed_count int;
@@ -144,15 +143,15 @@ declare
 begin
   select count(*) filter (where completed = true), count(*)
   into completed_count, total_count
-  from onboarding_steps
+  from coach_onboarding_steps
   where coach_id = new.coach_id;
 
   if completed_count = total_count then
-    update coaches set status = 'complete' where id = new.coach_id;
+    update coach_onboarding set status = 'complete' where id = new.coach_id;
   elsif completed_count > 0 then
-    update coaches set status = 'in_progress' where id = new.coach_id;
+    update coach_onboarding set status = 'in_progress' where id = new.coach_id;
   else
-    update coaches set status = 'pending' where id = new.coach_id;
+    update coach_onboarding set status = 'pending' where id = new.coach_id;
   end if;
 
   return new;
@@ -160,7 +159,7 @@ end;
 $$ language plpgsql;
 
 -- Trigger to update status when steps change
-drop trigger if exists on_step_updated on onboarding_steps;
-create trigger on_step_updated
-  after update on onboarding_steps
-  for each row execute function update_coach_status();
+drop trigger if exists on_coach_onboarding_step_updated on coach_onboarding_steps;
+create trigger on_coach_onboarding_step_updated
+  after update on coach_onboarding_steps
+  for each row execute function update_coach_onboarding_status();
