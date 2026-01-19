@@ -21,7 +21,9 @@ import {
   BookOpen,
   X,
   Loader2,
+  AlertCircle,
 } from 'lucide-react';
+
 import {
   Coach,
   CoachProfile,
@@ -29,6 +31,7 @@ import {
   ONBOARDING_STEPS,
   COACHING_SPECIALTIES,
   OnboardingStepKey,
+  ReviewStatus,
 } from '@/types/database';
 
 export default function CoachOnboardingPortal() {
@@ -55,9 +58,8 @@ export default function CoachOnboardingPortal() {
   const supabase = createClient();
 
   const fetchCoachData = useCallback(async () => {
-    // Fetch coach by token
     const { data: coachData, error: coachError } = await supabase
-      .from('coaches')
+      .from('coach_onboarding')
       .select('*')
       .eq('onboarding_token', token)
       .single();
@@ -70,10 +72,9 @@ export default function CoachOnboardingPortal() {
 
     setCoach(coachData);
 
-    // Fetch steps and profile
     const [stepsRes, profileRes] = await Promise.all([
-      supabase.from('onboarding_steps').select('*').eq('coach_id', coachData.id),
-      supabase.from('coach_profiles').select('*').eq('coach_id', coachData.id).single(),
+      supabase.from('coach_onboarding_steps').select('*').eq('coach_id', coachData.id),
+      supabase.from('coach_onboarding_profiles').select('*').eq('coach_id', coachData.id).single(),
     ]);
 
     if (stepsRes.data) setSteps(stepsRes.data);
@@ -101,7 +102,6 @@ export default function CoachOnboardingPortal() {
     const fileExt = file.name.split('.').pop();
     const fileName = `${coach.id}/${stepKey}-${Date.now()}.${fileExt}`;
 
-    // Upload file to storage
     const { error: uploadError } = await supabase.storage
       .from('coach-documents')
       .upload(fileName, file);
@@ -113,13 +113,15 @@ export default function CoachOnboardingPortal() {
       return;
     }
 
-    // Update step with file path
     const { error: stepError } = await supabase
-      .from('onboarding_steps')
+      .from('coach_onboarding_steps')
       .update({
         completed: true,
         completed_at: new Date().toISOString(),
         file_path: fileName,
+        review_status: 'pending',
+        review_feedback: null,
+        reviewed_at: null,
       })
       .eq('coach_id', coach.id)
       .eq('step_key', stepKey);
@@ -137,7 +139,7 @@ export default function CoachOnboardingPortal() {
     if (!coach) return;
 
     const { error } = await supabase
-      .from('onboarding_steps')
+      .from('coach_onboarding_steps')
       .update({
         completed: checked,
         completed_at: checked ? new Date().toISOString() : null,
@@ -159,7 +161,7 @@ export default function CoachOnboardingPortal() {
     setSavingProfile(true);
 
     const { error } = await supabase
-      .from('coach_profiles')
+      .from('coach_onboarding_profiles')
       .update({
         bio,
         specialties,
@@ -177,13 +179,15 @@ export default function CoachOnboardingPortal() {
       return;
     }
 
-    // Mark profile step as complete if all required fields are filled
     if (bio && specialties.length > 0) {
       await supabase
-        .from('onboarding_steps')
+        .from('coach_onboarding_steps')
         .update({
           completed: true,
           completed_at: new Date().toISOString(),
+          review_status: 'pending',
+          review_feedback: null,
+          reviewed_at: null,
         })
         .eq('coach_id', coach.id)
         .eq('step_key', 'profile');
