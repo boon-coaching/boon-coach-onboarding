@@ -23,7 +23,6 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
-
 import {
   Coach,
   CoachProfile,
@@ -305,42 +304,86 @@ export default function CoachOnboardingPortal() {
               const stepStatus = getStepStatus(step.key);
               const isUploading = uploading === step.key;
               const isOptional = step.key === 'certifications';
+              const reviewStatus = stepStatus?.review_status || 'pending';
+              const needsResubmit = reviewStatus === 'changes_requested';
+              const isApproved = reviewStatus === 'approved';
 
               return (
                 <div
                   key={step.key}
                   className={`p-4 rounded-lg border ${
-                    stepStatus?.completed ? 'bg-green-50 border-green-200' : 'bg-background'
+                    isApproved
+                      ? 'bg-green-50 border-green-200'
+                      : needsResubmit
+                      ? 'bg-red-50 border-red-200'
+                      : stepStatus?.completed
+                      ? 'bg-yellow-50 border-yellow-200'
+                      : 'bg-background'
                   }`}
                 >
                   <div className="flex items-start gap-4">
                     <div
                       className={`p-2 rounded-full ${
-                        stepStatus?.completed
+                        isApproved
                           ? 'bg-green-500 text-white'
+                          : needsResubmit
+                          ? 'bg-red-500 text-white'
+                          : stepStatus?.completed
+                          ? 'bg-yellow-500 text-white'
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
                       {getStepIcon(step.key)}
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="font-medium">{step.label}</h4>
                         {isOptional && (
                           <Badge variant="secondary" className="text-xs">
                             Optional
                           </Badge>
                         )}
-                        {stepStatus?.completed && (
-                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        {isApproved && (
+                          <Badge variant="success" className="text-xs">
+                            Approved
+                          </Badge>
+                        )}
+                        {needsResubmit && (
+                          <Badge variant="destructive" className="text-xs">
+                            Changes Requested
+                          </Badge>
+                        )}
+                        {stepStatus?.completed && !isApproved && !needsResubmit && (
+                          <Badge variant="warning" className="text-xs">
+                            Pending Review
+                          </Badge>
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">{step.description}</p>
+
+                      {/* Feedback from admin */}
+                      {stepStatus?.review_feedback && (
+                        <div className="mt-3 p-3 bg-red-100 border border-red-200 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <span className="font-medium text-red-800 text-sm">Feedback from admin:</span>
+                              <p className="text-red-700 text-sm mt-1">{stepStatus.review_feedback}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="mt-3">
-                        {stepStatus?.completed ? (
+                        {isApproved ? (
                           <div className="flex items-center gap-2 text-sm text-green-600">
                             <CheckCircle className="h-4 w-4" />
-                            Uploaded successfully
+                            Approved
+                          </div>
+                        ) : stepStatus?.completed && !needsResubmit ? (
+                          <div className="flex items-center gap-2 text-sm text-yellow-600">
+                            <CheckCircle className="h-4 w-4" />
+                            Uploaded - awaiting review
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
@@ -452,12 +495,44 @@ export default function CoachOnboardingPortal() {
               )}
             </Button>
 
-            {getStepStatus('profile')?.completed && (
-              <div className="flex items-center gap-2 text-sm text-green-600">
-                <CheckCircle className="h-4 w-4" />
-                Profile saved
-              </div>
-            )}
+            {(() => {
+              const profileStep = getStepStatus('profile');
+              const reviewStatus = profileStep?.review_status || 'pending';
+
+              if (profileStep?.review_feedback) {
+                return (
+                  <div className="p-3 bg-red-100 border border-red-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="font-medium text-red-800 text-sm">Feedback from admin:</span>
+                        <p className="text-red-700 text-sm mt-1">{profileStep.review_feedback}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (reviewStatus === 'approved') {
+                return (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                    Profile approved
+                  </div>
+                );
+              }
+
+              if (profileStep?.completed) {
+                return (
+                  <div className="flex items-center gap-2 text-sm text-yellow-600">
+                    <CheckCircle className="h-4 w-4" />
+                    Profile saved - awaiting review
+                  </div>
+                );
+              }
+
+              return null;
+            })()}
           </CardContent>
         </Card>
 
