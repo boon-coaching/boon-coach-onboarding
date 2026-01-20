@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Boon Coach Onboarding",
-  description: "Coach onboarding portal for Boon Health",
+  description: "Coach onboarding portal for Boon",
 };
 
 export default function RootLayout({

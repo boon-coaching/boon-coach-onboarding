@@ -261,7 +261,11 @@ export default function CoachOnboardingPortal() {
       <header className="border-b bg-background sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-primary">Boon Health</h1>
+            <img
+              src="https://storage.googleapis.com/boon-public-assets/Wordmark_Blue%20(8)%20(1).png"
+              alt="Boon"
+              className="h-8"
+            />
             <Badge variant="outline">{coach.email}</Badge>
           </div>
           <div className="mt-4">
@@ -282,7 +286,7 @@ export default function CoachOnboardingPortal() {
           <CardHeader>
             <CardTitle className="text-2xl">Welcome, {coach.name}!</CardTitle>
             <CardDescription>
-              Complete the steps below to finish your onboarding with Boon Health. Your progress is
+              Complete the steps below to finish your onboarding with Boon. Your progress is
               saved automatically, so you can return anytime.
             </CardDescription>
           </CardHeader>
@@ -621,7 +625,7 @@ export default function CoachOnboardingPortal() {
               </div>
               <CardTitle className="text-green-800">Onboarding Complete!</CardTitle>
               <CardDescription className="text-green-700">
-                You&apos;ve completed all onboarding steps. Welcome to the Boon Health team!
+                You&apos;ve completed all onboarding steps. Welcome to the Boon team!
               </CardDescription>
             </CardHeader>
           </Card>
@@ -632,8 +636,8 @@ export default function CoachOnboardingPortal() {
       <footer className="border-t bg-background mt-12">
         <div className="container mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
           Need help? Contact{' '}
-          <a href="mailto:support@boonhealth.com" className="text-primary hover:underline">
-            support@boonhealth.com
+          <a href="mailto:support@boon.com" className="text-primary hover:underline">
+            support@boon.com
           </a>
         </div>
       </footer>

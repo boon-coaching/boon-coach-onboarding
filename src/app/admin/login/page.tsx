@@ -44,8 +44,15 @@ export default function AdminLoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Boon Health Admin</CardTitle>
-          <CardDescription>
+          <div className="flex justify-center mb-4">
+            <img
+              src="https://storage.googleapis.com/boon-public-assets/Wordmark_Blue%20(8)%20(1).png"
+              alt="Boon"
+              className="h-10"
+            />
+          </div>
+          <CardTitle className="text-2xl font-bold text-center">Admin Portal</CardTitle>
+          <CardDescription className="text-center">
             Sign in to manage coach onboarding
           </CardDescription>
         </CardHeader>
@@ -56,7 +63,7 @@ export default function AdminLoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@boonhealth.com"
+                placeholder="admin@boon.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

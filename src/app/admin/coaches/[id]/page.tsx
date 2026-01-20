@@ -210,14 +210,21 @@ export default function CoachDetailPage() {
     <div className="min-h-screen bg-muted/30">
       {/* Header */}
       <header className="border-b bg-background">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/admin">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <h1 className="text-xl font-bold text-primary">Coach Details</h1>
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/admin">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            </Link>
+            <h1 className="text-lg font-semibold text-muted-foreground">Coach Details</h1>
+          </div>
+          <img
+            src="https://storage.googleapis.com/boon-public-assets/Wordmark_Blue%20(8)%20(1).png"
+            alt="Boon"
+            className="h-7"
+          />
         </div>
       </header>
 
