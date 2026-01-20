@@ -132,7 +132,14 @@ export default function AdminDashboard() {
       {/* Header */}
       <header className="border-b bg-background">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-primary">Boon Health Admin</h1>
+          <div className="flex items-center gap-3">
+            <img
+              src="https://storage.googleapis.com/boon-public-assets/Wordmark_Blue%20(8)%20(1).png"
+              alt="Boon"
+              className="h-8"
+            />
+            <span className="text-muted-foreground font-medium">Admin</span>
+          </div>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-2" />
             Sign Out

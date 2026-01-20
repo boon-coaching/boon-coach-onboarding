@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&display=swap');
 
 @theme inline {
   --color-background: var(--background);
@@ -20,7 +21,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --color-coral: var(--coral);
+  --color-coral-foreground: var(--coral-foreground);
+  --font-sans: "Barlow", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -29,49 +32,55 @@
 }
 
 :root {
+  /* Boon Brand Colors */
   --background: #ffffff;
-  --foreground: #0a0a0a;
+  --foreground: #2E353D;
   --card: #ffffff;
-  --card-foreground: #0a0a0a;
+  --card-foreground: #2E353D;
   --popover: #ffffff;
-  --popover-foreground: #0a0a0a;
-  --primary: #0f766e;
+  --popover-foreground: #2E353D;
+  --primary: #466FF6;
   --primary-foreground: #ffffff;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
+  --secondary: #F0F3F7;
+  --secondary-foreground: #2E353D;
+  --muted: #F0F3F7;
+  --muted-foreground: #6B7280;
+  --accent: #CCD9FF;
+  --accent-foreground: #2E353D;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  --ring: #0f766e;
-  --radius: 0.5rem;
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #466FF6;
+  --radius: 0.625rem;
+  /* Boon Coral */
+  --coral: #FF8D80;
+  --coral-foreground: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #fafafa;
-    --card: #0a0a0a;
-    --card-foreground: #fafafa;
-    --popover: #0a0a0a;
-    --popover-foreground: #fafafa;
-    --primary: #14b8a6;
-    --primary-foreground: #0a0a0a;
-    --secondary: #27272a;
-    --secondary-foreground: #fafafa;
-    --muted: #27272a;
-    --muted-foreground: #a1a1aa;
-    --accent: #27272a;
-    --accent-foreground: #fafafa;
+    --background: #1a1a1a;
+    --foreground: #F0F3F7;
+    --card: #2E353D;
+    --card-foreground: #F0F3F7;
+    --popover: #2E353D;
+    --popover-foreground: #F0F3F7;
+    --primary: #466FF6;
+    --primary-foreground: #ffffff;
+    --secondary: #3a4249;
+    --secondary-foreground: #F0F3F7;
+    --muted: #3a4249;
+    --muted-foreground: #9CA3AF;
+    --accent: #385ABD;
+    --accent-foreground: #ffffff;
     --destructive: #dc2626;
     --destructive-foreground: #fafafa;
-    --border: #27272a;
-    --input: #27272a;
-    --ring: #14b8a6;
+    --border: #3a4249;
+    --input: #3a4249;
+    --ring: #466FF6;
+    --coral: #FF8D80;
+    --coral-foreground: #2E353D;
   }
 }
 
@@ -83,4 +92,25 @@ body {
 
 * {
   border-color: var(--border);
+}
+
+/* Boon specific utilities */
+.text-boon-blue {
+  color: #466FF6;
+}
+
+.bg-boon-blue {
+  background-color: #466FF6;
+}
+
+.text-boon-coral {
+  color: #FF8D80;
+}
+
+.bg-boon-coral {
+  background-color: #FF8D80;
+}
+
+.bg-boon-light {
+  background-color: #F0F3F7;
 }
