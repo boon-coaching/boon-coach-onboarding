@@ -99,7 +99,12 @@ export default function CoachOnboardingPortal() {
     setUploading(stepKey);
 
     const fileExt = file.name.split('.').pop();
-    const fileName = `${coach.id}/${stepKey}-${Date.now()}.${fileExt}`;
+    // Use sanitized coach name for folder (lowercase, hyphens, no special chars)
+    const folderName = coach.name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+    const fileName = `${folderName}/${stepKey}-${Date.now()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from('coach-documents')
