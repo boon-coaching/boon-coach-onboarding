@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ import {
   OnboardingStepKey,
   ReviewStatus,
 } from '@/types/database';
+import { sendEmail } from '@/lib/email-client';
 
 export default function CoachOnboardingPortal() {
   const params = useParams();
@@ -51,6 +52,9 @@ export default function CoachOnboardingPortal() {
   const [schedulingPreferences, setSchedulingPreferences] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
+  // Track previous status to detect completion transition
+  const previousStatusRef = useRef<string | null>(null);
+
   // Upload state
   const [uploading, setUploading] = useState<string | null>(null);
 
@@ -68,6 +72,19 @@ export default function CoachOnboardingPortal() {
       setLoading(false);
       return;
     }
+
+    // Detect if status just transitioned to 'complete'
+    if (coachData.status === 'complete' && previousStatusRef.current && previousStatusRef.current !== 'complete') {
+      sendEmail({
+        type: 'all-steps-complete',
+        data: {
+          coachId: coachData.id,
+          coachName: coachData.name,
+          coachEmail: coachData.email,
+        },
+      });
+    }
+    previousStatusRef.current = coachData.status;
 
     setCoach(coachData);
 

@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Plus, LogOut, Users, CheckCircle, Clock, Copy, ExternalLink } from 'lucide-react';
 import { CoachWithProgress, ONBOARDING_STEPS } from '@/types/database';
+import { sendEmail } from '@/lib/email-client';
 
 export default function AdminDashboard() {
   const [coaches, setCoaches] = useState<CoachWithProgress[]>([]);
@@ -78,15 +79,27 @@ export default function AdminDashboard() {
     e.preventDefault();
     setCreating(true);
 
-    const { error } = await supabase.from('coach_onboarding').insert({
-      name: newCoachName,
-      email: newCoachEmail,
-    });
+    const { data, error } = await supabase
+      .from('coach_onboarding')
+      .insert({
+        name: newCoachName,
+        email: newCoachEmail,
+      })
+      .select()
+      .single();
 
     if (error) {
       console.error('Error creating coach:', error);
       alert('Failed to create coach: ' + error.message);
     } else {
+      sendEmail({
+        type: 'coach-invite',
+        data: {
+          coachName: data.name,
+          coachEmail: data.email,
+          token: data.onboarding_token,
+        },
+      });
       setNewCoachName('');
       setNewCoachEmail('');
       setDialogOpen(false);
