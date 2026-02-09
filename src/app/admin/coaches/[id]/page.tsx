@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { ArrowLeft, Copy, CheckCircle, Download, User, Mail, Calendar, ExternalLink, AlertCircle, MessageSquare } from 'lucide-react';
 import { Coach, CoachProfile, OnboardingStep, ONBOARDING_STEPS, ReviewStatus } from '@/types/database';
+import { sendEmail } from '@/lib/email-client';
 
 export default function CoachDetailPage() {
   const params = useParams();
@@ -68,6 +69,8 @@ export default function CoachDetailPage() {
   }, [coachId]);
 
   const toggleStep = async (stepKey: string, currentCompleted: boolean) => {
+    const previousStatus = coach?.status;
+
     const { error } = await supabase
       .from('coach_onboarding_steps')
       .update({
@@ -80,6 +83,24 @@ export default function CoachDetailPage() {
     if (error) {
       console.error('Error updating step:', error);
       return;
+    }
+
+    // Refetch to get updated status (DB trigger may have set it to 'complete')
+    const { data: updatedCoach } = await supabase
+      .from('coach_onboarding')
+      .select('*')
+      .eq('id', coachId)
+      .single();
+
+    if (updatedCoach && updatedCoach.status === 'complete' && previousStatus !== 'complete') {
+      sendEmail({
+        type: 'all-steps-complete',
+        data: {
+          coachId,
+          coachName: updatedCoach.name,
+          coachEmail: updatedCoach.email,
+        },
+      });
     }
 
     fetchCoachData();
@@ -146,6 +167,31 @@ export default function CoachDetailPage() {
       console.error('Error updating review status:', error);
       alert('Failed to update review status');
     } else {
+      const stepDef = ONBOARDING_STEPS.find((s) => s.key === stepKey);
+      if (coach && stepDef) {
+        if (status === 'approved') {
+          sendEmail({
+            type: 'step-approved',
+            data: {
+              coachName: coach.name,
+              coachEmail: coach.email,
+              stepLabel: stepDef.label,
+              token: coach.onboarding_token,
+            },
+          });
+        } else if (status === 'changes_requested' && feedback) {
+          sendEmail({
+            type: 'changes-requested',
+            data: {
+              coachName: coach.name,
+              coachEmail: coach.email,
+              stepLabel: stepDef.label,
+              feedback,
+              token: coach.onboarding_token,
+            },
+          });
+        }
+      }
       setFeedbackDialog({ open: false, stepKey: '', currentFeedback: '' });
       fetchCoachData();
     }
