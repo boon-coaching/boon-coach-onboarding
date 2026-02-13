@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
     const emailFrom = process.env.EMAIL_FROM || 'Boon <jfuentes@boon-health.com>';
     const adminEmail = process.env.ADMIN_EMAIL || 'hello@boon-health.com';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const firstName = data.coachName?.split(' ')[0] || data.coachName;
 
     switch (type) {
       case 'coach-invite': {
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
           to: data.coachEmail,
           subject: `Welcome to Boon - Start Your Onboarding`,
           react: CoachInviteEmail({
-            coachName: data.coachName,
+            coachName: firstName,
             onboardingUrl,
           }),
         });
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
           to: data.coachEmail,
           subject: `Changes Requested: ${data.stepLabel}`,
           react: ChangesRequestedEmail({
-            coachName: data.coachName,
+            coachName: firstName,
             stepLabel: data.stepLabel,
             feedback: data.feedback,
             onboardingUrl,
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
           to: data.coachEmail,
           subject: `Approved: ${data.stepLabel}`,
           react: StepApprovedEmail({
-            coachName: data.coachName,
+            coachName: firstName,
             stepLabel: data.stepLabel,
             onboardingUrl,
           }),

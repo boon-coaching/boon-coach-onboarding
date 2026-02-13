@@ -35,6 +35,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [newCoachName, setNewCoachName] = useState('');
   const [newCoachEmail, setNewCoachEmail] = useState('');
+  const [newCoachRate, setNewCoachRate] = useState('');
   const [creating, setCreating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
@@ -84,6 +85,7 @@ export default function AdminDashboard() {
       .insert({
         name: newCoachName,
         email: newCoachEmail,
+        hourly_rate: newCoachRate ? parseFloat(newCoachRate) : null,
       })
       .select()
       .single();
@@ -102,6 +104,7 @@ export default function AdminDashboard() {
       });
       setNewCoachName('');
       setNewCoachEmail('');
+      setNewCoachRate('');
       setDialogOpen(false);
       fetchCoaches();
     }
@@ -257,6 +260,23 @@ export default function AdminDashboard() {
                         placeholder="john@example.com"
                         required
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="rate">Hourly Rate (optional)</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                        <Input
+                          id="rate"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={newCoachRate}
+                          onChange={(e) => setNewCoachRate(e.target.value)}
+                          placeholder="150.00"
+                          className="pl-7"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">/hr</span>
+                      </div>
                     </div>
                   </div>
                   <DialogFooter>

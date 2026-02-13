@@ -29,7 +29,7 @@ export function AllStepsCompleteEmail({ coachName, coachEmail, adminUrl }: Props
             src="https://storage.googleapis.com/boon-public-assets/Wordmark_Blue%20(8)%20(1).png"
             alt="Boon"
             width="120"
-            height="36"
+            height="auto"
             style={logo}
           />
           <Heading style={heading}>Onboarding Complete</Heading>

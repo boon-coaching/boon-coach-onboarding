@@ -28,7 +28,7 @@ export function CoachInviteEmail({ coachName, onboardingUrl }: Props) {
             src="https://storage.googleapis.com/boon-public-assets/Wordmark_Blue%20(8)%20(1).png"
             alt="Boon"
             width="120"
-            height="36"
+            height="auto"
             style={logo}
           />
           <Heading style={heading}>Welcome to Boon, {coachName}!</Heading>
@@ -39,7 +39,7 @@ export function CoachInviteEmail({ coachName, onboardingUrl }: Props) {
           <Text style={paragraph}>Here is what you will need to have ready:</Text>
           <ul style={list}>
             <li style={listItem}>W9 form (PDF)</li>
-            <li style={listItem}>1099 contractor agreement (PDF)</li>
+            <li style={listItem}>Review and sign your 1099 contractor agreement</li>
             <li style={listItem}>Professional headshot (JPG/PNG)</li>
             <li style={listItem}>Coaching certifications, if applicable (PDF)</li>
             <li style={listItem}>Bio and coaching specialties</li>
