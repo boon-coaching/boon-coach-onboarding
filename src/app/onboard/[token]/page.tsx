@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import {
   CheckCircle,
   Upload,
   FileText,
+  Download,
   User,
   Image as ImageIcon,
   Award,
@@ -32,6 +33,7 @@ import {
   OnboardingStepKey,
   ReviewStatus,
 } from '@/types/database';
+import { sendEmail } from '@/lib/email-client';
 
 export default function CoachOnboardingPortal() {
   const params = useParams();
@@ -51,6 +53,9 @@ export default function CoachOnboardingPortal() {
   const [schedulingPreferences, setSchedulingPreferences] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
+  // Track previous status to detect completion transition
+  const previousStatusRef = useRef<string | null>(null);
+
   // Upload state
   const [uploading, setUploading] = useState<string | null>(null);
 
@@ -68,6 +73,19 @@ export default function CoachOnboardingPortal() {
       setLoading(false);
       return;
     }
+
+    // Detect if status just transitioned to 'complete'
+    if (coachData.status === 'complete' && previousStatusRef.current && previousStatusRef.current !== 'complete') {
+      sendEmail({
+        type: 'all-steps-complete',
+        data: {
+          coachId: coachData.id,
+          coachName: coachData.name,
+          coachEmail: coachData.email,
+        },
+      });
+    }
+    previousStatusRef.current = coachData.status;
 
     setCoach(coachData);
 
@@ -157,6 +175,27 @@ export default function CoachOnboardingPortal() {
     }
 
     fetchCoachData();
+  };
+
+  const downloadFile = async (filePath: string, fileName: string) => {
+    const { data, error } = await supabase.storage
+      .from('coach-documents')
+      .download(filePath);
+
+    if (error) {
+      console.error('Error downloading file:', error);
+      alert('Failed to download file');
+      return;
+    }
+
+    const url = URL.createObjectURL(data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const saveProfile = async () => {
@@ -257,6 +296,7 @@ export default function CoachOnboardingPortal() {
   }
 
   const uploadSteps = ONBOARDING_STEPS.filter((s) => s.type === 'upload');
+  const contractSteps = ONBOARDING_STEPS.filter((s) => s.type === 'contract');
   const deckStep = ONBOARDING_STEPS.find((s) => s.key === 'deck_reviewed');
   const manualSteps = ONBOARDING_STEPS.filter((s) => s.type === 'manual');
 
@@ -409,6 +449,123 @@ export default function CoachOnboardingPortal() {
                             {isUploading && (
                               <Loader2 className="h-4 w-4 animate-spin text-primary" />
                             )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Contract Steps (1099) */}
+            {contractSteps.map((step) => {
+              const stepStatus = getStepStatus(step.key);
+              const isUploading = uploading === step.key;
+              const reviewStatus = stepStatus?.review_status || 'pending';
+              const needsResubmit = reviewStatus === 'changes_requested';
+              const isApproved = reviewStatus === 'approved';
+              const hasAdminContract = !!stepStatus?.admin_file_path;
+              const hasSignedUpload = !!stepStatus?.file_path;
+
+              return (
+                <div
+                  key={step.key}
+                  className={`p-4 rounded-lg border ${
+                    isApproved
+                      ? 'bg-green-50 border-green-200'
+                      : needsResubmit
+                      ? 'bg-red-50 border-red-200'
+                      : hasSignedUpload
+                      ? 'bg-yellow-50 border-yellow-200'
+                      : 'bg-background'
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`p-2 rounded-full ${
+                        isApproved
+                          ? 'bg-green-500 text-white'
+                          : needsResubmit
+                          ? 'bg-red-500 text-white'
+                          : hasSignedUpload
+                          ? 'bg-yellow-500 text-white'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {getStepIcon(step.key)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-medium">{step.label}</h4>
+                        {isApproved && (
+                          <Badge variant="success" className="text-xs">Approved</Badge>
+                        )}
+                        {needsResubmit && (
+                          <Badge variant="destructive" className="text-xs">Changes Requested</Badge>
+                        )}
+                        {hasSignedUpload && !isApproved && !needsResubmit && (
+                          <Badge variant="warning" className="text-xs">Pending Review</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">{step.description}</p>
+
+                      {/* Feedback from admin */}
+                      {stepStatus?.review_feedback && (
+                        <div className="mt-3 p-3 bg-red-100 border border-red-200 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <span className="font-medium text-red-800 text-sm">Feedback from admin:</span>
+                              <p className="text-red-700 text-sm mt-1">{stepStatus.review_feedback}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-3">
+                        {isApproved ? (
+                          <div className="flex items-center gap-2 text-sm text-green-600">
+                            <CheckCircle className="h-4 w-4" />
+                            Approved
+                          </div>
+                        ) : !hasAdminContract ? (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4" />
+                            Your 1099 agreement is being prepared. Check back soon.
+                          </div>
+                        ) : hasSignedUpload && !needsResubmit ? (
+                          <div className="flex items-center gap-2 text-sm text-yellow-600">
+                            <CheckCircle className="h-4 w-4" />
+                            Signed agreement uploaded, awaiting review
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                downloadFile(stepStatus!.admin_file_path!, '1099-contractor-agreement.pdf')
+                              }
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              Download Agreement
+                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="file"
+                                accept=".pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleFileUpload(step.key, file);
+                                }}
+                                disabled={isUploading}
+                                className="max-w-xs"
+                              />
+                              {isUploading && (
+                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>

@@ -18,8 +18,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ArrowLeft, Copy, CheckCircle, Download, User, Mail, Calendar, ExternalLink, AlertCircle, MessageSquare } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, Copy, CheckCircle, Download, Upload, User, Mail, Calendar, ExternalLink, AlertCircle, MessageSquare, DollarSign, Pencil } from 'lucide-react';
 import { Coach, CoachProfile, OnboardingStep, ONBOARDING_STEPS, ReviewStatus } from '@/types/database';
+import { sendEmail } from '@/lib/email-client';
 
 export default function CoachDetailPage() {
   const params = useParams();
@@ -37,6 +39,10 @@ export default function CoachDetailPage() {
   });
   const [feedbackText, setFeedbackText] = useState('');
   const [savingReview, setSavingReview] = useState(false);
+  const [editingRate, setEditingRate] = useState(false);
+  const [rateValue, setRateValue] = useState('');
+  const [savingRate, setSavingRate] = useState(false);
+  const [uploadingContract, setUploadingContract] = useState(false);
   const supabase = createClient();
 
   const fetchCoachData = async () => {
@@ -68,6 +74,8 @@ export default function CoachDetailPage() {
   }, [coachId]);
 
   const toggleStep = async (stepKey: string, currentCompleted: boolean) => {
+    const previousStatus = coach?.status;
+
     const { error } = await supabase
       .from('coach_onboarding_steps')
       .update({
@@ -82,6 +90,24 @@ export default function CoachDetailPage() {
       return;
     }
 
+    // Refetch to get updated status (DB trigger may have set it to 'complete')
+    const { data: updatedCoach } = await supabase
+      .from('coach_onboarding')
+      .select('*')
+      .eq('id', coachId)
+      .single();
+
+    if (updatedCoach && updatedCoach.status === 'complete' && previousStatus !== 'complete') {
+      sendEmail({
+        type: 'all-steps-complete',
+        data: {
+          coachId,
+          coachName: updatedCoach.name,
+          coachEmail: updatedCoach.email,
+        },
+      });
+    }
+
     fetchCoachData();
   };
 
@@ -91,6 +117,60 @@ export default function CoachDetailPage() {
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const saveRate = async () => {
+    setSavingRate(true);
+    const { error } = await supabase
+      .from('coach_onboarding')
+      .update({ hourly_rate: rateValue ? parseFloat(rateValue) : null })
+      .eq('id', coachId);
+
+    if (error) {
+      console.error('Error updating rate:', error);
+      alert('Failed to update rate');
+    } else {
+      setEditingRate(false);
+      fetchCoachData();
+    }
+    setSavingRate(false);
+  };
+
+  const handleAdminContractUpload = async (file: File) => {
+    if (!coach) return;
+    setUploadingContract(true);
+
+    const folderName = coach.name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${folderName}/1099-contract-${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('coach-documents')
+      .upload(fileName, file);
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      alert('Failed to upload contract: ' + uploadError.message);
+      setUploadingContract(false);
+      return;
+    }
+
+    const { error: stepError } = await supabase
+      .from('coach_onboarding_steps')
+      .update({ admin_file_path: fileName })
+      .eq('coach_id', coachId)
+      .eq('step_key', '1099');
+
+    if (stepError) {
+      console.error('Step update error:', stepError);
+      alert('Failed to save contract path');
+    }
+
+    setUploadingContract(false);
+    fetchCoachData();
   };
 
   const downloadFile = async (filePath: string, fileName: string) => {
@@ -146,6 +226,31 @@ export default function CoachDetailPage() {
       console.error('Error updating review status:', error);
       alert('Failed to update review status');
     } else {
+      const stepDef = ONBOARDING_STEPS.find((s) => s.key === stepKey);
+      if (coach && stepDef) {
+        if (status === 'approved') {
+          sendEmail({
+            type: 'step-approved',
+            data: {
+              coachName: coach.name,
+              coachEmail: coach.email,
+              stepLabel: stepDef.label,
+              token: coach.onboarding_token,
+            },
+          });
+        } else if (status === 'changes_requested' && feedback) {
+          sendEmail({
+            type: 'changes-requested',
+            data: {
+              coachName: coach.name,
+              coachEmail: coach.email,
+              stepLabel: stepDef.label,
+              feedback,
+              token: coach.onboarding_token,
+            },
+          });
+        }
+      }
       setFeedbackDialog({ open: false, stepKey: '', currentFeedback: '' });
       fetchCoachData();
     }
@@ -243,6 +348,46 @@ export default function CoachDetailPage() {
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     Added {new Date(coach.created_at).toLocaleDateString()}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    {editingRate ? (
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={rateValue}
+                            onChange={(e) => setRateValue(e.target.value)}
+                            className="h-7 w-28 pl-5 text-sm"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <Button size="sm" variant="default" className="h-7 text-xs" onClick={saveRate} disabled={savingRate}>
+                          Save
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingRate(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <span>{coach.hourly_rate ? `$${coach.hourly_rate}/hr` : 'No rate set'}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => {
+                            setRateValue(coach.hourly_rate?.toString() || '');
+                            setEditingRate(true);
+                          }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardDescription>
               </div>
@@ -367,7 +512,8 @@ export default function CoachDetailPage() {
                 const stepStatus = getStepStatus(step.key);
                 const isManual = manualSteps.includes(step.key);
                 const hasFile = stepStatus?.file_path;
-                const isReviewable = step.type === 'upload' || step.type === 'form';
+                const isContract = step.type === 'contract';
+                const isReviewable = step.type === 'upload' || step.type === 'form' || step.type === 'contract';
                 const reviewStatus = stepStatus?.review_status || 'pending';
 
                 return (
@@ -436,7 +582,54 @@ export default function CoachDetailPage() {
                       )}
 
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {hasFile && (
+                        {/* Contract step: admin upload + download buttons */}
+                        {isContract && (
+                          <>
+                            {!stepStatus?.admin_file_path ? (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="file"
+                                  accept=".pdf"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleAdminContractUpload(file);
+                                  }}
+                                  disabled={uploadingContract}
+                                  className="max-w-xs"
+                                />
+                                {uploadingContract && (
+                                  <span className="text-sm text-muted-foreground">Uploading...</span>
+                                )}
+                              </div>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  downloadFile(stepStatus!.admin_file_path!, `${coach.name}-1099-contract`)
+                                }
+                              >
+                                <Download className="h-3 w-3 mr-1" />
+                                Original Contract
+                              </Button>
+                            )}
+                            {hasFile && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  downloadFile(stepStatus!.file_path!, `${coach.name}-1099-signed`)
+                                }
+                              >
+                                <Download className="h-3 w-3 mr-1" />
+                                Signed Version
+                              </Button>
+                            )}
+                          </>
+                        )}
+
+                        {/* Regular file download for non-contract steps */}
+                        {!isContract && hasFile && (
                           <Button
                             variant="outline"
                             size="sm"

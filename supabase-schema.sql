@@ -8,6 +8,7 @@ create table if not exists coach_onboarding (
   email text not null,
   onboarding_token text unique not null default gen_random_uuid(),
   status text default 'pending' check (status in ('pending', 'in_progress', 'complete')),
+  hourly_rate numeric(10,2),
   created_at timestamp with time zone default now()
 );
 
@@ -19,6 +20,7 @@ create table if not exists coach_onboarding_steps (
   completed boolean default false,
   completed_at timestamp with time zone,
   file_path text,
+  admin_file_path text,
   review_status text default 'pending' check (review_status in ('pending', 'approved', 'changes_requested')),
   review_feedback text,
   reviewed_at timestamp with time zone,
@@ -119,7 +121,8 @@ begin
     (new.id, 'deck_reviewed'),
     (new.id, 'zoom'),
     (new.id, 'gmail'),
-    (new.id, 'salesforce');
+    (new.id, 'salesforce'),
+    (new.id, 'background_check');
 
   insert into coach_onboarding_profiles (coach_id)
   values (new.id);
