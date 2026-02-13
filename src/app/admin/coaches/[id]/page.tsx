@@ -586,20 +586,31 @@ export default function CoachDetailPage() {
                         {isContract && (
                           <>
                             {!stepStatus?.admin_file_path ? (
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="file"
-                                  accept=".pdf"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) handleAdminContractUpload(file);
-                                  }}
-                                  disabled={uploadingContract}
-                                  className="max-w-xs"
-                                />
-                                {uploadingContract && (
-                                  <span className="text-sm text-muted-foreground">Uploading...</span>
-                                )}
+                              <div className="space-y-2">
+                                <p className="text-sm text-muted-foreground">Upload the 1099 agreement for this coach to review and sign.</p>
+                                <label className="inline-flex items-center gap-2 cursor-pointer">
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    disabled={uploadingContract}
+                                    asChild
+                                  >
+                                    <span>
+                                      <Upload className="h-3 w-3 mr-1" />
+                                      {uploadingContract ? 'Uploading...' : 'Upload Contract'}
+                                    </span>
+                                  </Button>
+                                  <input
+                                    type="file"
+                                    accept=".pdf"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleAdminContractUpload(file);
+                                    }}
+                                    disabled={uploadingContract}
+                                    className="hidden"
+                                  />
+                                </label>
                               </div>
                             ) : (
                               <Button
